@@ -18,6 +18,10 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        nature: "bg-sage text-sage-foreground hover:bg-sage/90 shadow-md hover:shadow-lg transition-all duration-300",
+        forest: "bg-forest text-forest-foreground hover:bg-forest/90 shadow-lg hover:shadow-xl transition-all duration-300",
+        terracotta: "bg-terracotta text-terracotta-foreground hover:bg-terracotta/90 shadow-md hover:shadow-lg transition-all duration-300",
+        gradient: "bg-gradient-to-r from-primary to-sage text-primary-foreground hover:shadow-lg transition-all duration-300"
       },
       size: {
         default: "h-10 px-4 py-2",

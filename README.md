@@ -1,73 +1,108 @@
-# Welcome to your Lovable project
+# Leaf Love Advisor — React App (Vite + TypeScript + Tailwind + shadcn/ui)
 
-## Project info
+A lightweight React app that recommends houseplants based on your preferences. Built with **Vite**, **React (TypeScript)**, **Tailwind CSS**, and **shadcn/ui**.
 
-**URL**: https://lovable.dev/projects/11185cfa-2000-4016-b88a-512757af5093
+## Tech Stack
 
-## How can I edit this code?
+- **Build tool:** Vite 5 (`vite.config.ts`)
+- **Language:** React + TypeScript
+- **Styling:** Tailwind CSS (`tailwind.config.ts`, `postcss.config.js`)
+- **UI:** shadcn/ui (Radix UI primitives)
+- **Routing:** React Router
+- **Data fetching/cache:** @tanstack/react-query
+- **Linting:** ESLint 9
 
-There are several ways of editing your application.
+> Dev server is configured to run on **http://localhost:8080**.
 
-**Use Lovable**
+## Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/11185cfa-2000-4016-b88a-512757af5093) and start prompting.
+- **Node.js ≥ 18** (Vite 5 requires Node 18+). Node 20+ recommended.
+- A package manager of your choice: **npm** (default), **pnpm**, **yarn**, or **bun**.
+  - The repo contains both `package-lock.json` and `bun.lockb`. If in doubt, use **npm** for consistency with the lockfile already in the project.
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
+Clone the repo and install dependencies:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+# with npm
+npm install
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# or with pnpm
+pnpm install
 
-Follow these steps:
+# or with yarn
+yarn install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# or with bun
+bun install
 ```
 
-**Edit a file directly in GitHub**
+### Run the app in development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run dev
+```
+- The Vite dev server starts on **http://localhost:8080** (configured in `vite.config.ts`).
 
-**Use GitHub Codespaces**
+### Build for production
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm run build
+```
+- Outputs static files to `dist/`.
 
-## What technologies are used for this project?
+### Preview the production build locally
 
-This project is built with:
+```bash
+npm run preview
+```
+- Serves the contents of `dist/` so you can verify the production build locally.
+- Vite will print the preview URL and port in the terminal (defaults to 4173 unless overridden).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Lint the project
 
-## How can I deploy this project?
+```bash
+npm run lint
+```
 
-Simply open [Lovable](https://lovable.dev/projects/11185cfa-2000-4016-b88a-512757af5093) and click on Share -> Publish.
+## Project Structure (high level)
 
-## Can I connect a custom domain to my Lovable project?
+```
+leaf-love-advisor/
+├── index.html
+├── package.json
+├── vite.config.ts
+├── tailwind.config.ts
+├── postcss.config.js
+├── public/                # static assets served as-is
+├── src/
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── pages/
+│   │   ├── Index.tsx
+│   │   └── NotFound.tsx
+│   ├── components/        # UI components (includes shadcn/ui)
+│   └── assets/            # app images
+└── ...
+```
 
-Yes, you can!
+## Environment Variables
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+No environment variables are required to run the app locally. If you add any later, Vite expects variables to be prefixed with `VITE_` in your `.env` files (e.g., `.env`, `.env.development`). Access them via `import.meta.env.VITE_SOME_KEY`.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Deployment
+
+This is a static front‑end. After `npm run build`, deploy the `dist/` folder to any static host (Netlify, Vercel, GitHub Pages, S3/CloudFront, Nginx, etc.).
+
+- Ensure your server serves `index.html` for unknown routes if you rely on client-side routing (React Router).
+
+## Common Issues & Tips
+
+- **Port already in use (8080):** change the port in `vite.config.ts` or stop the conflicting process.
+- **Node version errors:** ensure `node -v` is ≥ 18. Consider using `nvm` to switch versions.
+- **CSS not applying:** verify Tailwind is configured and the stylesheet is imported (see `src/main.tsx` and `src/index.css`/`src/App.css`).
+
+---
+
+Happy planting 🌿
