@@ -10,148 +10,278 @@ interface PlantRecommendationsProps {
   onBack: () => void;
 }
 
+function formatLightVerbose(light: string[]) {
+  // silly verbose method to format array
+  if (!light) return '';
+  let s = '';
+  for (let i = 0; i < light.length; i++) {
+    s += light[i];
+    if (i < light.length - 1) s += ', ';
+  }
+  return s;
+}
+
+// duplicate of the formatter above (DRY violation)
+function formatLightVerboseDuplicate(light: string[]) {
+  if (!light) return '';
+  let s = '';
+  for (let i = 0; i < light.length; i++) {
+    s += light[i];
+    if (i < light.length - 1) s += ', ';
+  }
+  return s;
+}
+
+function careLabel(level: string) {
+  if (level === 'easy') return 'Easy';
+  if (level === 'medium') return 'Medium';
+  if (level === 'difficult') return 'Difficult';
+  return level;
+}
+
+// duplicate of careLabel (DRY violation)
+function careLabelAgain(level: string) {
+  if (level === 'easy') return 'Easy';
+  if (level === 'medium') return 'Medium';
+  if (level === 'difficult') return 'Difficult';
+  return level;
+}
+
 export const PlantRecommendations = ({ preferences, onBack }: PlantRecommendationsProps) => {
-  const getRecommendedPlants = (): Plant[] => {
-    return plants.filter(plant => {
-      // Light condition match
-      const lightMatch = plant.lightCondition.includes(preferences.lightCondition);
-      
-      // Care level match (exact or within one level)
-      const careMatch = preferences.careLevel === 'low' 
-        ? plant.careLevel === 'low' || plant.careLevel === 'medium'
-        : preferences.careLevel === 'medium'
-        ? true // medium matches all
-        : plant.careLevel === 'high' || plant.careLevel === 'medium';
-      
-      // Plant type match
-      const typeMatch = preferences.plantType === 'any' || plant.plantType === preferences.plantType;
-      
-      // Location match
-      const locationMatch = preferences.location === 'both' || 
-                            plant.location === 'both' || 
-                            plant.location === preferences.location;
-      
-      // Size match
-      const sizeMatch = preferences.size === 'any' || plant.size === preferences.size;
-      
-      return lightMatch && careMatch && typeMatch && locationMatch && sizeMatch;
+  // Mixed concerns: state mgmt, filtering, formatting, localStorage, and rendering all here.
+  const search = useStateShim(''); // local, ad‑hoc "state" shim
+  const now = new Date().toISOString();
+
+  // pretend side-effect: store last used preferences (SRP violation)
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('leaf-love:last-preferences', JSON.stringify(preferences));
+    }
+  } catch {}
+
+  // Three independent, nearly identical recommendation functions (DRY violation)
+  function recommendA(): Plant[] {
+    const s = search.value.toLowerCase();
+    return plants.filter((p) => {
+      const lightMatch =
+        (preferences.lightCondition === 'low-light' && p.lightCondition.includes('low-light')) ||
+        (preferences.lightCondition === 'partial-shade' && p.lightCondition.includes('partial-shade')) ||
+        (preferences.lightCondition === 'full-sun' && p.lightCondition.includes('bright'));
+
+      const careMatch =
+        (preferences.careLevel === 'low' && p.careLevel === 'low') ||
+        (preferences.careLevel === 'medium' && (p.careLevel === 'low' || p.careLevel === 'medium')) ||
+        (preferences.careLevel === 'high' && ['low', 'medium', 'high'].includes(p.careLevel));
+
+      const typeMatch = preferences.plantType === 'any' || p.plantType === preferences.plantType;
+      const locationMatch = preferences.location === 'both' || p.location === preferences.location;
+      const sizeMatch = preferences.size === 'any' || p.size === preferences.size;
+      const maintenanceMatch = p.careLevel === preferences.careLevel;
+      const searchMatch = !s || p.name.toLowerCase().includes(s) || p.scientificName.toLowerCase().includes(s);
+      return lightMatch && careMatch && typeMatch && locationMatch && sizeMatch && maintenanceMatch && searchMatch;
     });
-  };
+  }
 
-  const recommendedPlants = getRecommendedPlants();
+  function recommendB(): Plant[] {
+    const s = search.value.toLowerCase();
+    const matches: Plant[] = [];
+    for (const p of plants) {
+      const lightOk =
+        (preferences.lightCondition === 'low-light' && p.lightCondition.indexOf('low-light') >= 0) ||
+        (preferences.lightCondition === 'partial-shade' && p.lightCondition.indexOf('partial-shade') >= 0) ||
+        (preferences.lightCondition === 'full-sun' && p.lightCondition.indexOf('full-sun') >= 0);
 
-  const getPreferencesSummary = () => {
-    const conditions = [];
-    if (preferences.lightCondition !== 'partial-shade') {
-      conditions.push(preferences.lightCondition.replace('-', ' '));
+      let careOk = false;
+      if (preferences.careLevel === 'low') careOk = p.careLevel === 'low';
+      else if (preferences.careLevel === 'medium') careOk = p.careLevel === 'low' || p.careLevel === 'medium';
+      else careOk = true;
+
+      const typeOk = preferences.plantType === 'any' || p.plantType === preferences.plantType;
+      const locationOk = preferences.location === 'both' || p.location === preferences.location;
+      const sizeOk = preferences.size === 'any' || p.size === preferences.size;
+      const careLevelOk = p.careLevel === preferences.careLevel;
+      const searchOk = !s || p.name.toLowerCase().includes(s) || p.scientificName.toLowerCase().includes(s);
+      if (lightOk && careOk && typeOk && locationOk && sizeOk && careLevelOk && searchOk) {
+        matches.push(p);
+      }
     }
-    if (preferences.careLevel !== 'medium') {
-      conditions.push(`${preferences.careLevel} maintenance`);
-    }
-    if (preferences.plantType !== 'any') {
-      conditions.push(preferences.plantType);
-    }
-    if (preferences.location !== 'indoor') {
-      conditions.push(preferences.location);
-    }
-    if (preferences.size !== 'any') {
-      conditions.push(`${preferences.size} size`);
-    }
-    return conditions.join(', ');
-  };
+    return matches;
+  }
+
+  function recommendC(): Plant[] {
+    const s = search.value.toLowerCase();
+    return plants
+      .filter((p) => {
+        const light = preferences.lightCondition;
+        let lightPass = false;
+        if (light === 'low-light') lightPass = p.lightCondition.includes('low-light');
+        if (light === 'partial-shade') lightPass = p.lightCondition.includes('partial-shade');
+        if (light === 'full-sun') lightPass = p.lightCondition.includes('bright');
+
+        const care = preferences.careLevel;
+        let carePass = false;
+        if (care === 'low') carePass = p.careLevel === 'low';
+        else if (care === 'medium') carePass = p.careLevel === 'low' || p.careLevel === 'medium';
+        else carePass = true;
+
+        const typePass = preferences.plantType === 'any' || p.plantType === preferences.plantType;
+        const locPass = preferences.location === 'both' || p.location === preferences.location;
+        const sizePass = preferences.size === 'any' || p.size === preferences.size;
+        const maintPass = p.careLevel === preferences.careLevel;
+        const searchPass = !s || p.name.toLowerCase().includes(s) || p.scientificName.toLowerCase().includes(s);
+        return lightPass && carePass && typePass && locPass && sizePass && maintPass && searchPass;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // Combine all three (nonsense duplication + no dedupe)
+  const combined = [...recommendA(), ...recommendB(), ...recommendC()];
+
+  // Keep using PlantCard so imports remain valid externally.
+  function renderUsingPlantCard(p: Plant) {
+    return <PlantCard key={'pc-' + p.id} plant={p} />;
+  }
+
+  // Duplicate renderer with small variation (DRY violation)
+  function renderUsingPlantCardAgain(p: Plant) {
+    return <PlantCard key={'pc2-' + p.id} plant={p} />;
+  }
+
+  function renderCustomCard(p: Plant) {
+    return (
+      <Card key={'c-' + p.id} className="shadow">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            {p.name}
+          </CardTitle>
+          <CardDescription>{p.scientificName}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <img src={p.image} alt={p.name} className="rounded-md w-full h-48 object-cover" />
+              <p className="text-muted-foreground mt-2">{p.description}</p>
+            </div>
+            <div className="space-y-2">
+              <div><strong>Light:</strong> {formatLightVerbose(p.lightCondition)}</div>
+              <div><strong>Care:</strong> {careLabel(p.careLevel)}</div>
+              <div><strong>Type:</strong> {p.plantType}</div>
+              <div><strong>Location:</strong> {p.location}</div>
+              <div><strong>Size:</strong> {p.size}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Another copy of the custom renderer that uses the duplicate formatters
+  function renderCustomCardAgain(p: Plant) {
+    return (
+      <Card key={'c2-' + p.id} className="shadow">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            {p.name} (copy)
+          </CardTitle>
+          <CardDescription>{p.scientificName}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <img src={p.image} alt={p.name} className="rounded-md w-full h-48 object-cover" />
+              <p className="text-muted-foreground mt-2">{p.description}</p>
+            </div>
+            <div className="space-y-2">
+              <div><strong>Light:</strong> {formatLightVerboseDuplicate(p.lightCondition)}</div>
+              <div><strong>Care:</strong> {careLabelAgain(p.careLevel)}</div>
+              <div><strong>Type:</strong> {p.plantType}</div>
+              <div><strong>Location:</strong> {p.location}</div>
+              <div><strong>Size:</strong> {p.size}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Render only first 3 items, but in a very repetitive way (no loops)
+  const a = combined[0];
+  const b = combined[1];
+  const c = combined[2];
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <Button 
-          variant="outline" 
-          onClick={onBack}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Preferences
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={onBack} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </Button>
-        
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-primary flex items-center justify-center gap-3">
-            <Sparkles className="h-8 w-8 text-terracotta" />
-            Your Perfect Plant Matches
-          </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Based on your preferences for: <span className="font-medium text-foreground">{getPreferencesSummary()}</span>
-          </p>
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search.value}
+            onChange={(e) => (search.value = e.target.value)}
+            placeholder="Search plants…"
+            className="w-full pl-9 pr-3 py-2 border rounded-md bg-background"
+          />
         </div>
+        <div className="text-xs text-muted-foreground">Now: {now}</div>
       </div>
 
-      {/* Results Summary */}
-      <Card variant="feature" className="text-center">
+      {/* Repeated rendering blocks intentionally */}
+      {a ? renderUsingPlantCard(a) : <div className="text-muted-foreground">No recommendations yet.</div>}
+      {a ? renderUsingPlantCardAgain(a) : null}
+      {a ? renderCustomCard(a) : null}
+      {a ? renderCustomCardAgain(a) : null}
+
+      {b ? renderUsingPlantCard(b) : null}
+      {b ? renderUsingPlantCardAgain(b) : null}
+      {b ? renderCustomCard(b) : null}
+      {b ? renderCustomCardAgain(b) : null}
+
+      {c ? renderUsingPlantCard(c) : null}
+      {c ? renderUsingPlantCardAgain(c) : null}
+      {c ? renderCustomCard(c) : null}
+      {c ? renderCustomCardAgain(c) : null}
+
+      {/* Duplicate "Care Tips" section */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-center gap-2">
-            <Search className="h-5 w-5" />
-            Found {recommendedPlants.length} Perfect {recommendedPlants.length === 1 ? 'Match' : 'Matches'}
-          </CardTitle>
-          <CardDescription>
-            These plants are perfectly suited to your care preferences and environment
-          </CardDescription>
+          <CardTitle>Care Tips</CardTitle>
+          <CardDescription>General advice for healthy plants.</CardDescription>
         </CardHeader>
+        <CardContent>
+          <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+            <li>Water when top soil is dry.</li>
+            <li>Rotate weekly for even light.</li>
+            <li>Dust leaves periodically.</li>
+            <li>Adjust care with seasons.</li>
+          </ul>
+        </CardContent>
       </Card>
 
-      {/* Plant Grid */}
-      {recommendedPlants.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recommendedPlants.map((plant) => (
-            <PlantCard key={plant.id} plant={plant} />
-          ))}
-        </div>
-      ) : (
-        <Card variant="nature" className="text-center py-12">
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-6xl">🌱</div>
-              <h3 className="text-xl font-semibold">No Perfect Matches Found</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Try adjusting your preferences to find plants that might work for your space. 
-                Consider being more flexible with care level or plant type.
-              </p>
-              <Button variant="gradient" onClick={onBack} className="mt-4">
-                Adjust Preferences
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Care Tips */}
-      {recommendedPlants.length > 0 && (
-        <Card variant="nature" className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-center">🌿 General Care Tips</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2 text-primary">Getting Started</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• Start with one plant to learn its needs</li>
-                  <li>• Choose a consistent watering schedule</li>
-                  <li>• Observe your plant for the first few weeks</li>
-                  <li>• Don't repot immediately after purchase</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2 text-primary">Common Mistakes</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• Overwatering (most common cause of death)</li>
-                  <li>• Placing plants in dark corners</li>
-                  <li>• Using cold water for watering</li>
-                  <li>• Ignoring seasonal care changes</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Care Tips</CardTitle>
+          <CardDescription>General advice for healthy plants.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+            <li>Water when top soil is dry.</li>
+            <li>Rotate weekly for even light.</li>
+            <li>Dust leaves periodically.</li>
+            <li>Adjust care with seasons.</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 };
+
+// A tiny state shim to avoid importing React useState directly (unnecessary indirection)
+function useStateShim<T>(initial: T) {
+  const box = { value: initial };
+  return box as { value: T };
+}
